@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch(Debug)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build (Debug)",
+            "program": "${workspaceFolder}/.out/bin/Debug/WPFTimer.dll",
+            "cwd": "${workspaceFolder}/.out/bin/Debug",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Attach",
+            "type": "coreclr",
+            "request": "attach"
+        },
+    ]
+}
