@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Reflection;
 using System.Threading;
 using System.Windows;
@@ -16,8 +17,8 @@ using System.Windows.Media;
 [assembly: AssemblyProduct("WPFTimer")]
 [assembly: AssemblyCopyright("Copyright Skatech Lab 2023")]
 [assembly: AssemblyTrademark("")]
-[assembly: AssemblyVersion("1.2.0.0")]
-[assembly: AssemblyFileVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyFileVersion("1.3.0.0")]
 
 namespace WPFTimer;
 
@@ -34,8 +35,12 @@ partial class MainWindow : Window {
             if (Interlocked.Increment(ref _counter) == 1) {
                 if (CheckAccess()) {
                     _player.Play();
+                    Activate();
                 }
-                else Dispatcher.BeginInvoke(() => _player.Play());
+                else {
+                    Dispatcher.BeginInvoke(() => _player.Play());
+                    Dispatcher.BeginInvoke(() => Activate());
+                }
             }
         }
         else {
@@ -50,6 +55,7 @@ partial class MainWindow : Window {
 
     public MainWindow() {
         InitializeComponent();
+        
         _player.Open(new Uri("ringtone.mp3", UriKind.Relative));
         _player.Volume = 1.0;
         _player.MediaEnded += (_, _) => {
@@ -57,6 +63,12 @@ partial class MainWindow : Window {
                 _player.Play();
         };
         ViewModel.RingtoneRequested += EnablePlayer;
+
+        foreach (var arg in Environment.GetCommandLineArgs()) {
+            if (int.TryParse(arg, out int value) && value > 0 && value < 3600) {
+                ViewModel.StartTimer(value);
+            }
+        }
     }
 }
 
