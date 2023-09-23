@@ -10,9 +10,12 @@
         Title="WPF Timer" Height="600" Width="870"
         WindowStartupLocation="CenterScreen"
         Icon="Application.ico">
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo ProgressState="Normal" ProgressValue="{Binding NearestProgress}" />
+    </Window.TaskbarItemInfo>
 
     <DockPanel>
-        <ItemsControl ItemsSource="{Binding Intervals}" DockPanel.Dock="Top" Margin="5">
+        <ItemsControl ItemsSource="{Binding Intervals}" DockPanel.Dock="Top" Margin="5" Focusable="False">
             <ItemsControl.Template>
                 <ControlTemplate>
                     <ScrollViewer x:Name="ScrollViewer" Padding="{TemplateBinding Padding}"
@@ -43,7 +46,7 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <ItemsControl ItemsSource="{Binding Tasks}" Margin="5">
+        <ItemsControl ItemsSource="{Binding Tasks}" Margin="5" Focusable="False">
             <ItemsControl.Template>
                 <ControlTemplate>
                     <ScrollViewer x:Name="ScrollViewer" Padding="{TemplateBinding Padding}"

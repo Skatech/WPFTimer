@@ -6,26 +6,17 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Input;
-using System.Diagnostics.Metrics;
-using System.Windows.Automation.Peers;
-using System.Windows;
-using System.Collections;
 using System.Diagnostics;
-using Microsoft.Win32;
 using System.Threading;
-using System.Media;
-using System.IO;
-using System.Linq.Expressions;
-using System.Threading.Tasks.Dataflow;
-using System.Collections.Concurrent;
 
 namespace WPFTimer;
 
 class MainViewModel : INotifyPropertyChanged {
     public event PropertyChangedEventHandler? PropertyChanged;
-    public event Action<bool>? RingtoneRequested;
     public ObservableCollection<TimerView> Tasks { get; } = new();
     public IEnumerable<StartButtonViewModel> Intervals { get; }
+    public double NearestProgress { get; private set; }
+    public bool RingtoneEnabled { get; private set; }
 
     public MainViewModel() {
         var startTimerCommand = new RelayCommand<int>(StartTimer);
@@ -34,18 +25,38 @@ class MainViewModel : INotifyPropertyChanged {
     }
 
     public void StartTimer(int interval) {
-        AddTask(new TimerView(interval, OnRingtoneRequested));
+        var timer = new TimerView(interval);
+        timer.PropertyChanged += OnTimerViewPropertyChanged;
+        lock (Tasks) Tasks.Add(timer);
+        timer.Start();
     }
 
-    void AddTask(TimerView view) {
-        Tasks.Add(view);
-        view.Worker.ContinueWith(async _ => await Task.Delay(100))
-            .Unwrap().ContinueWith(_ => Tasks.Remove(view),
-                TaskScheduler.FromCurrentSynchronizationContext());
-    }
+    void OnTimerViewPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (sender is TimerView timer) {
+            if (nameof(TimerView.Progress).Equals(e.PropertyName)) {
+                if (timer.Progress > NearestProgress) {
+                    NearestProgress = timer.Progress;
+                    OnPropertyChanged(nameof(NearestProgress));
 
-    void OnRingtoneRequested(bool enabled) {
-        RingtoneRequested?.Invoke(enabled);
+                    if (RingtoneEnabled != (NearestProgress == 1.0)) {
+                        RingtoneEnabled = (NearestProgress == 1.0); 
+                        OnPropertyChanged(nameof(RingtoneEnabled));
+                    }
+                }
+            }
+            else if (e.PropertyName is null) { // timer stopped
+                timer.PropertyChanged -= OnTimerViewPropertyChanged;                
+                lock(Tasks) {
+                    Tasks.Remove(timer);
+                    NearestProgress = Tasks.Count > 0 ? Tasks.Max(e => e.Progress) : 0;
+                }
+                OnPropertyChanged(nameof(NearestProgress));
+                if (RingtoneEnabled != (NearestProgress == 1.0)) {
+                    RingtoneEnabled = (NearestProgress == 1.0); 
+                    OnPropertyChanged(nameof(RingtoneEnabled));
+                }
+            }
+        }
     }
 
     void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName]string? name = null) {
@@ -67,31 +78,38 @@ class StartButtonViewModel {
 class TimerView : INotifyPropertyChanged {
     public event PropertyChangedEventHandler? PropertyChanged;
     public ICommand StopCommand { get; }
-    public Task Worker { get; }
+    public Task? Worker { get; private set; }
     public TimeSpan Timeout { get; private set; }
     public Brush ForegroundBrush { get; private set; } = Brushes.Black;
+    public double Progress { get; private set; }
 
     CancellationTokenSource _cts = new();
-    Action<bool> _ringtoneRequest;
-
-    public TimerView(int minutesDelay, Action<bool> ringtoneRequest) {
-        _ringtoneRequest = ringtoneRequest;
+    
+    public TimerView(int minutesDelay) {
         StopCommand = new RelayCommand(Stop);
         Timeout = TimeSpan.FromMinutes(minutesDelay);
-        Worker = Run(_cts.Token);
+    }
+
+    public void Start() {
+        if (Worker == null) {
+            Worker = Run(_cts.Token);
+            Worker.ContinueWith(_ =>  OnPropertyChanged(null), // signal timer stopped
+                TaskScheduler.FromCurrentSynchronizationContext());
+        }
+        else throw new InvalidOperationException("TimerView already started.");
     }
 
     async Task Run(CancellationToken cancellationToken) {
         TimeSpan delay = Timeout;
         Stopwatch sw = Stopwatch.StartNew();
         while (delay > sw.Elapsed) {
-            Timeout = delay - sw.Elapsed;
-            OnPropertyChanged(nameof(Timeout));
             await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+            Timeout = delay - sw.Elapsed;
+            OnPropertyChanged(nameof(Timeout));            
+            Progress = Math.Min(1.0, sw.Elapsed / delay);
+            OnPropertyChanged(nameof(Progress));
         }
 
-        _ringtoneRequest(true);
-        using var finalizer = new FinalAction(() => _ringtoneRequest(false));
         while (true) {
             ForegroundBrush = (sw.Elapsed.Seconds % 2) > 0 ? Brushes.Red : Brushes.Black;            
             OnPropertyChanged(nameof(ForegroundBrush));
@@ -105,17 +123,5 @@ class TimerView : INotifyPropertyChanged {
 
     void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName]string? name = null) {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-    }
-
-    struct FinalAction :IDisposable {
-        readonly Action _action;
-
-        public FinalAction(Action action) {
-            _action = action;
-        }
-
-        public void Dispose() {
-            _action();
-        }
     }
 }
