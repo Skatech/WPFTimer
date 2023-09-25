@@ -2,65 +2,68 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using System.Windows.Input;
 using System.Diagnostics;
 using System.Threading;
+using System.Windows.Shell;
 
 namespace WPFTimer;
 
-class MainViewModel : INotifyPropertyChanged {
-    public event PropertyChangedEventHandler? PropertyChanged;
+class MainWindowViewModel : ObservableObject, IDisposable {
     public ObservableCollection<TimerView> Tasks { get; } = new();
     public IEnumerable<StartButtonViewModel> Intervals { get; }
-    public double NearestProgress { get; private set; }
+    public TaskbarItemProgressState TaskbarProgressState { get; private set; } = TaskbarItemProgressState.None;
+    public double TaskbarProgressValue { get; private set; } = 0;
     public bool RingtoneEnabled { get; private set; }
+    readonly CancellationTokenSource _cts = new();
+    readonly Task _worker;
 
-    public MainViewModel() {
-        var startTimerCommand = new RelayCommand<int>(StartTimer);
+    ~MainWindowViewModel() => Dispose();
+
+    public MainWindowViewModel() {
+        _worker = Worker();
+        var command = new RelayCommand<int>(StartTimer);
         Intervals = new[] { 5, 10, 15, 20, 25, 30, 40, 50, 60, 90, 120, 180 }
-            .Select(it => new StartButtonViewModel(it, startTimerCommand)).ToArray();
+            .Select(it => new StartButtonViewModel(it, command)).ToArray();
     }
 
-    public void StartTimer(int interval) {
-        var timer = new TimerView(interval);
-        timer.PropertyChanged += OnTimerViewPropertyChanged;
-        lock (Tasks) Tasks.Add(timer);
-        timer.Start();
+    public void Dispose() {
+        _cts.Cancel();
+        Task.WhenAll(_worker);
+        GC.SuppressFinalize(this);
     }
 
-    void OnTimerViewPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (sender is TimerView timer) {
-            if (nameof(TimerView.Progress).Equals(e.PropertyName)) {
-                if (timer.Progress > NearestProgress) {
-                    NearestProgress = timer.Progress;
-                    OnPropertyChanged(nameof(NearestProgress));
+    public void StartTimer(int minutes) {
+        Tasks.Add(new TimerView(this, TimeSpan.FromMinutes(minutes)));
+    }
 
-                    if (RingtoneEnabled != (NearestProgress == 1.0)) {
-                        RingtoneEnabled = (NearestProgress == 1.0); 
-                        OnPropertyChanged(nameof(RingtoneEnabled));
-                    }
-                }
+    public bool StopTimer(TimerView timer) {
+        return Tasks.Remove(timer);
+    }
+
+    async Task Worker() {
+        while(true) {
+            await Task.Delay(1490 - DateTime.Now.Millisecond, _cts.Token).ConfigureAwait(true);
+            var progress = 0.0;
+            foreach(var timer in Tasks) {
+                timer.Update();
+                progress = Math.Max(progress, timer.GetProgress());
             }
-            else if (e.PropertyName is null) { // timer stopped
-                timer.PropertyChanged -= OnTimerViewPropertyChanged;                
-                lock(Tasks) {
-                    Tasks.Remove(timer);
-                    NearestProgress = Tasks.Count > 0 ? Tasks.Max(e => e.Progress) : 0;
-                }
-                OnPropertyChanged(nameof(NearestProgress));
-                if (RingtoneEnabled != (NearestProgress == 1.0)) {
-                    RingtoneEnabled = (NearestProgress == 1.0); 
-                    OnPropertyChanged(nameof(RingtoneEnabled));
-                }
+
+            if (progress == 0 || progress == 1 || TaskbarProgressValue == 0 ||
+                    Math.Abs(progress - TaskbarProgressValue) >= 0.001) {
+                SetProperty(TaskbarProgressValue, progress,
+                    v => TaskbarProgressValue = v, nameof(TaskbarProgressValue));
             }
+
+            SetProperty(TaskbarProgressState,
+                Tasks.Count > 0 ? TaskbarItemProgressState.Normal : TaskbarItemProgressState.None,
+                v => TaskbarProgressState = v, nameof(TaskbarProgressState));
+
+            SetProperty(RingtoneEnabled, progress == 1.0, v => RingtoneEnabled = v, nameof(RingtoneEnabled));
         }
-    }
-
-    void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName]string? name = null) {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
 
@@ -75,53 +78,36 @@ class StartButtonViewModel {
     }
 }
 
-class TimerView : INotifyPropertyChanged {
-    public event PropertyChangedEventHandler? PropertyChanged;
-    public ICommand StopCommand { get; }
-    public Task? Worker { get; private set; }
-    public TimeSpan Timeout { get; private set; }
+class TimerView : ObservableObject {
+    public ICommand StopCommand => new RelayCommand(Stop);
+    public TimeSpan Delay { get; }
+    public TimeSpan Lasts { get; private set; }
     public Brush ForegroundBrush { get; private set; } = Brushes.Black;
-    public double Progress { get; private set; }
 
-    CancellationTokenSource _cts = new();
-    
-    public TimerView(int minutesDelay) {
-        StopCommand = new RelayCommand(Stop);
-        Timeout = TimeSpan.FromMinutes(minutesDelay);
+    readonly MainWindowViewModel _model;
+    readonly Stopwatch _timer = Stopwatch.StartNew();
+
+    public TimerView(MainWindowViewModel model, TimeSpan delay) {
+        _model = model; Lasts = Delay = delay;
     }
 
-    public void Start() {
-        if (Worker == null) {
-            Worker = Run(_cts.Token);
-            Worker.ContinueWith(_ =>  OnPropertyChanged(null), // signal timer stopped
-                TaskScheduler.FromCurrentSynchronizationContext());
-        }
-        else throw new InvalidOperationException("TimerView already started.");
+    public double GetProgress() {
+        return 1.0 - Lasts / Delay;
     }
 
-    async Task Run(CancellationToken cancellationToken) {
-        TimeSpan delay = Timeout;
-        Stopwatch sw = Stopwatch.StartNew();
-        while (delay > sw.Elapsed) {
-            await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
-            Timeout = delay - sw.Elapsed;
-            OnPropertyChanged(nameof(Timeout));            
-            Progress = Math.Min(1.0, sw.Elapsed / delay);
-            OnPropertyChanged(nameof(Progress));
+    public void Update() {
+        if (Lasts > TimeSpan.Zero) {
+            SetProperty(Lasts, Delay > _timer.Elapsed ? Delay - _timer.Elapsed : TimeSpan.Zero,
+                v => Lasts = v, nameof(Lasts));
         }
 
-        while (true) {
-            ForegroundBrush = (sw.Elapsed.Seconds % 2) > 0 ? Brushes.Red : Brushes.Black;            
-            OnPropertyChanged(nameof(ForegroundBrush));
-            await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
+        if (Lasts == TimeSpan.Zero) {
+            SetProperty(ForegroundBrush, DateTime.Now.Second % 2 > 0 ? Brushes.Black : Brushes.Red,
+                v => ForegroundBrush = v, nameof(ForegroundBrush));
         }
     }
 
     void Stop() {
-        _cts.Cancel();
-    }
-
-    void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName]string? name = null) {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        _model.StopTimer(this);
     }
 }

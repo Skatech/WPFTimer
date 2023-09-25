@@ -4,6 +4,6 @@
              xmlns:local="clr-namespace:WPFTimer"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <local:MainViewModel x:Key="MainViewModel"/>
+        <local:MainWindowViewModel x:Key="MainWindowViewModel"/>
    </Application.Resources>
 </Application>

@@ -6,12 +6,15 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:local="clr-namespace:WPFTimer"
         mc:Ignorable="d"
-        DataContext="{StaticResource MainViewModel}"
+        DataContext="{StaticResource MainWindowViewModel}"
         Title="WPF Timer" Height="600" Width="870"
         WindowStartupLocation="CenterScreen"
-        Icon="Application.ico">
+        Icon="Application.ico"
+        Closed="OnClosed">
+
     <Window.TaskbarItemInfo>
-        <TaskbarItemInfo ProgressState="Normal" ProgressValue="{Binding NearestProgress}" />
+        <TaskbarItemInfo ProgressState="{Binding TaskbarProgressState}"
+            ProgressValue="{Binding TaskbarProgressValue}" />
     </Window.TaskbarItemInfo>
 
     <DockPanel>
@@ -66,7 +69,7 @@
                                 <ColumnDefinition Width="3*"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding Timeout, StringFormat={}{0:hh\\:mm\\:ss}}"
+                            <TextBlock Text="{Binding Lasts, StringFormat={}{0:hh\\:mm\\:ss}}"
                                         TextAlignment="Center" Margin="10,3" FontSize="64" Foreground="{Binding ForegroundBrush}" />
                             <Button  Grid.Column="1" Margin="10" FontSize="42"
                                     Command="{Binding StopCommand}">Stop</Button>

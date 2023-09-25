@@ -20,17 +20,15 @@ using System.Windows.Media;
 [assembly: AssemblyProduct("WPFTimer")]
 [assembly: AssemblyCopyright("Copyright Skatech Lab 2023")]
 [assembly: AssemblyTrademark("")]
-[assembly: AssemblyVersion("1.4.0.0")]
-[assembly: AssemblyFileVersion("1.4.0.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
 
 namespace WPFTimer;
 
 partial class MainWindow : Window {
-    MediaPlayer _player = new MediaPlayer();
+    readonly MediaPlayer _player = new MediaPlayer();
 
-    MainViewModel ViewModel {
-        get { return (MainViewModel)this.DataContext; }
-    }
+    MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext;
     
     public MainWindow() {
         InitializeComponent();
@@ -41,6 +39,7 @@ partial class MainWindow : Window {
                 _player.Position = TimeSpan.FromMilliseconds(1);
                 _player.Play();
         };
+
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         foreach (var arg in Environment.GetCommandLineArgs()) {
@@ -50,16 +49,7 @@ partial class MainWindow : Window {
         }
     }
 
-    void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) {
-        if (sender is MainViewModel model && nameof(MainViewModel.RingtoneEnabled).Equals(e.PropertyName)) {
-            if (CheckAccess()) {
-                EnableAlarmMode(model.RingtoneEnabled);
-            }
-            else Dispatcher.BeginInvoke(() => EnableAlarmMode(model.RingtoneEnabled));
-        }
-    }
-
-    void EnableAlarmMode(bool enable) {
+    void SwitchAlarmMode(bool enable) {
         if (enable) {
             WindowState = WindowState.Normal;
             Topmost = true;
@@ -71,6 +61,15 @@ partial class MainWindow : Window {
             _player.Stop();
         }
     }
+
+    void OnClosed(object? sender, EventArgs e) {
+        ViewModel.Dispose();
+    }
+
+    void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) {
+        if (sender is MainWindowViewModel model &&
+                nameof(MainWindowViewModel.RingtoneEnabled).Equals(e.PropertyName)) {
+            SwitchAlarmMode(model.RingtoneEnabled);
+        }
+    }
 }
-
-
