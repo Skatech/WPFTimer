@@ -9,8 +9,7 @@
         DataContext="{StaticResource MainWindowViewModel}"
         Title="WPF Timer" Height="600" Width="870"
         WindowStartupLocation="CenterScreen"
-        Icon="Application.ico"
-        Closed="OnClosed">
+        Icon="Application.ico">
 
     <Window.TaskbarItemInfo>
         <TaskbarItemInfo ProgressState="{Binding TaskbarProgressState}"
@@ -39,7 +38,7 @@
             
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Button Command="{Binding Command}" CommandParameter="{Binding MinutesDelay}"
+                    <Button Command="{Binding StartCommand}" CommandParameter="{Binding MinutesDelay}"
                             MinWidth="200" Margin="5" Padding="5,2" FontSize="42">
                         <Button.Content>
                             <TextBlock Text="{Binding MinutesDelay, StringFormat={}{0} min}" />
@@ -49,7 +48,7 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <ItemsControl ItemsSource="{Binding Tasks}" Margin="5" Focusable="False">
+        <ItemsControl ItemsSource="{Binding Timers}" Margin="5" Focusable="False">
             <ItemsControl.Template>
                 <ControlTemplate>
                     <ScrollViewer x:Name="ScrollViewer" Padding="{TemplateBinding Padding}"

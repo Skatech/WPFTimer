@@ -12,7 +12,10 @@ class ObservableObject : INotifyPropertyChanged {
     }
 
     protected bool SetProperty<T>(
-            [System.Diagnostics.CodeAnalysis.NotNullIfNotNull(nameof(newValue))] ref T field, T newValue,
+        #if NET7_0_OR_GREATER
+            [System.Diagnostics.CodeAnalysis.NotNullIfNotNull(nameof(newValue))]
+        #endif
+            ref T field, T newValue,
             [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null) {
         if (EqualityComparer<T>.Default.Equals(field, newValue)) {
             return false;

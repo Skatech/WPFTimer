@@ -1,11 +1,9 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.Reflection;
 using System.Threading;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 
 [assembly:ThemeInfo(
@@ -20,18 +18,23 @@ using System.Windows.Media;
 [assembly: AssemblyProduct("WPFTimer")]
 [assembly: AssemblyCopyright("Copyright Skatech Lab 2023")]
 [assembly: AssemblyTrademark("")]
-[assembly: AssemblyVersion("1.5.0.0")]
-[assembly: AssemblyFileVersion("1.5.0.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyFileVersion("1.6.0.0")]
 
 namespace WPFTimer;
 
 partial class MainWindow : Window {
     readonly MediaPlayer _player = new MediaPlayer();
+    System.Windows.Threading.DispatcherTimer _timer = new();
 
     MainWindowViewModel ViewModel => (MainWindowViewModel)DataContext;
     
     public MainWindow() {
         InitializeComponent();
+
+        _timer.Tick += new EventHandler(OnTimerTick); 
+        _timer.Interval = TimeSpan.FromMilliseconds(1000); 
+        _timer.Start(); 
 
         _player.Open(new Uri("ringtone.mp3", UriKind.Relative));
         _player.Volume = 1.0;
@@ -62,8 +65,9 @@ partial class MainWindow : Window {
         }
     }
 
-    void OnClosed(object? sender, EventArgs e) {
-        ViewModel.Dispose();
+    void OnTimerTick(object? sender, EventArgs e) {
+        _timer.Interval = TimeSpan.FromMilliseconds((1490 - DateTime.Now.Millisecond) % 1000);
+        ViewModel.Update();
     }
 
     void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e) {
