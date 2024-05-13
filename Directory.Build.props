@@ -3,6 +3,6 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <BaseIntermediateOutputPath>.out\obj\</BaseIntermediateOutputPath>
     <BaseOutputPath>.out\bin\</BaseOutputPath>
-    <PublishDir>.out\Publish\</PublishDir>
+    <PublishDir>.publish\</PublishDir>
   </PropertyGroup>
 </Project>

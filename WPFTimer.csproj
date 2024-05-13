@@ -1,12 +1,28 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>WinExe</OutputType>
+
         <TargetFramework>net6.0-windows</TargetFramework>
-        <Nullable>enable</Nullable>
+        <LangVersion>preview</LangVersion>
+
+        <OutputType>WinExe</OutputType>
         <UseWPF>true</UseWPF>
-        <ApplicationIcon>Application.ico</ApplicationIcon>
+
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <ApplicationIcon>Application.ico</ApplicationIcon>
+        <NeutralLanguage>en-US</NeutralLanguage>
+        <RootNamespace>WPFTimer</RootNamespace>
+	    <Copyright>Copyright © 2024</Copyright>
+        <Company>Skatech Lab</Company>
+        <Product>WPFTimer</Product>
+	    <Version>1.2.0.0</Version>
+
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>false</SelfContained>
+
     </PropertyGroup>
 
     <ItemGroup>
